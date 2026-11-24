@@ -1,0 +1,12 @@
+{% extends "core/base.html" %}
+{% block title %}Your album · {{ S.CLUB_NAME }}{% endblock %}
+{% block js %}<script>try{localStorage.setItem("album_link",JSON.stringify(location.pathname))}catch(e){}</script>{% endblock %}
+{% block content %}
+<section class="kanga small"><div class="jina"><h1>Asante{% if s.name %}, {{ s.name }}{% endif %}.</h1>
+<p>Thank you for giving KES {{ s.amount }}. {{ S.ALBUM_TITLE }} is yours.</p></div></section>
+<section class="wrap"><h2>Listen and download</h2>
+{% for t in tracks %}<div class="song"><b>{{ t.title }}</b><audio controls preload="none" src="{% url 'fetch' s.token t.id %}"></audio>
+<a class="btn ghost" href="{% url 'fetch' s.token t.id %}?dl=1">Download</a></div>{% empty %}<p class="lead">The tracks are being uploaded. Check back shortly.</p>{% endfor %}
+{% for z in zips %}<a class="btn big" href="{% url 'fetch' s.token z.id %}?dl=1">Download the full album ({{ z.title }})</a>{% endfor %}
+<p class="fine">Save this page: bookmark it, or use “Find your album” on the home page with your phone number and amount.</p></section>
+{% endblock %}

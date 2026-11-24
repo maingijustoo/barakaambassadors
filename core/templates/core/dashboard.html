@@ -1,0 +1,8 @@
+{% extends "core/base.html" %}
+{% block title %}Dashboard · {{ S.CLUB_NAME }}{% endblock %}
+{% block content %}<section class="wrap first"><h1>Launch dashboard</h1>
+<div class="stats"><div><b>KES {{ tot.total|default:0 }}</b><span>raised</span></div><div><b>{{ tot.n }}</b><span>givers</span></div><div><b>{{ pending }}</b><span>waiting</span></div><div><b>{{ failed }}</b><span>didn't complete</span></div></div>
+<h2>By amount</h2><table>{% for r in by %}<tr><td>KES {{ r.amount }}</td><td>{{ r.n }} givers</td><td>KES {{ r.sum }}</td></tr>{% endfor %}</table>
+<h2>Latest gifts</h2><div class="scroll"><table>{% for s in recent %}<tr class="{{ s.status }}"><td>{{ s.created|date:"j M H:i" }}</td><td>{{ s.name|default:"-" }}</td><td>{{ s.phone }}</td><td>KES {{ s.amount }}</td><td>{{ s.get_status_display }}</td></tr>{% endfor %}</table></div>
+<p><a class="btn ghost" href="/dashboard.csv">Download CSV</a> <a class="btn ghost" href="/admin/">Full admin</a></p></section>
+<script>setTimeout(()=>location.reload(),30000)</script>{% endblock %}

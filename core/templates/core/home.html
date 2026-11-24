@@ -1,0 +1,41 @@
+{% extends "core/base.html" %}{% load static %}
+{% block content %}
+<div id="mine" class="mine" hidden><span>Welcome back. Your album is ready.</span><a class="btn" href="#">Open my album</a></div>
+<section class="kanga"><div class="jina">
+<h1>Help {{ S.CLUB_NAME }} carry our music further</h1>
+<p>{{ S.ALBUM_TITLE }} comes out {{ S.LAUNCH_DATE }}. Give what you can to support the club, and take the whole album home as our thank-you.</p>
+<a class="btn" href="#give">Give to the club</a></div>
+<p class="saying">{{ S.SAYING }}<small>{{ S.SAYING_EN }}</small></p></section>
+<section class="wrap tilewrap"><a class="tile" href="#give" id="listen" aria-label="Listen now. Give any amount to unlock {{ S.ALBUM_TITLE }}">
+<div class="cover">{% if S.ALBUM_COVER %}<img src="{{ S.ALBUM_COVER }}" alt="" width="520" height="520" fetchpriority="high">{% else %}<div class="art"><span>{{ S.ALBUM_TITLE }}</span></div>{% endif %}<i class="shine"></i>
+<span class="listen"><svg class="play" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z" fill="currentColor"/></svg>Listen now</span></div>
+<div class="tinfo"><b>{{ S.ALBUM_TITLE }}</b><span>{{ S.CLUB_NAME }}</span></div></a>
+<p class="fine">Give any amount to unlock the full album.</p></section>
+
+<section class="wrap" id="give-sec"><form id="give" method="post" novalidate>{% csrf_token %}
+<h2>Choose how much to give</h2>
+<p class="lead">Every amount helps, and every giver gets the full album. Most people give KES 200.</p>
+{% for t in TIERS %}<label class="tier{% if t.pop %} pop{% endif %}"><input type="radio" name="amount" value="{{ t.amt }}"{% if t.pop %} checked{% endif %}>
+<b>KES {{ t.amt }}</b><span>{{ t.name }}</span>{% if t.pop %}<em>Most chosen</em>{% endif %}</label>{% endfor %}
+<label class="tier"><input type="radio" name="amount" value="custom"><b>Your own amount</b><span>KES {{ S.CUSTOM_MIN }} or more</span>
+<input type="number" id="custom" inputmode="numeric" min="{{ S.CUSTOM_MIN }}" placeholder="e.g. 500" aria-label="Your own amount in KES"></label>
+<label class="field">M-Pesa number<input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0712 345 678" required></label>
+<label class="field">Your name <small>(optional)</small><input name="name" autocomplete="name" placeholder="So we can say thank you"></label>
+<label class="field">Email <small>(optional)</small><input name="email" type="email" autocomplete="email" placeholder="you@example.com"></label>
+<p class="err" id="err" role="alert" hidden></p>
+<button class="btn big" type="submit" id="go">Give with M-Pesa</button>
+<p class="fine">You'll get a prompt on your phone to enter your M-Pesa PIN. Nothing is taken until you confirm.</p></form>
+<div id="wait" class="panel" hidden aria-live="polite"><div class="spin" id="spin"></div><h2 id="wt">Check your phone</h2><p id="wm">Enter your M-Pesa PIN to give.</p>
+<button class="btn" id="again" hidden>Check again</button> <button class="btn ghost" id="retry" hidden>Try a new prompt</button>
+<p><a href="#find" id="findlink" hidden>Already paid? Find my album</a></p></div></section>
+
+{% if previews %}<section class="wrap"><h2>Hear us first</h2><p class="lead">A few of our earlier songs, on the house.</p>
+{% for t in previews %}<div class="song"><b>{{ t.title }}</b><audio controls preload="none" src="/listen/{{ t.id }}/"></audio></div>{% endfor %}</section>{% endif %}
+
+<section class="wrap"><details id="find"{% if find_error %} open{% endif %}><summary>Already given? Find your album</summary>
+<form method="post" action="/find/" class="find">{% csrf_token %}<label class="field">Phone you paid with<input name="phone" type="tel" required></label>
+<label class="field">Amount you gave (KES)<input name="amount" type="number" inputmode="numeric" required></label>
+{% if find_error %}<p class="err">We couldn't find that gift. Check the number and amount, or ask the club.</p>{% endif %}
+<button class="btn ghost">Find my album</button></form></details></section>
+{% endblock %}
+{% block js %}<script src="{% static 'js/app.js' %}?v={{ V }}"></script>{% endblock %}

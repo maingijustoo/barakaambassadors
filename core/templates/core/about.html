@@ -1,0 +1,11 @@
+{% extends "core/base.html" %}
+{% block title %}Our story · {{ S.CLUB_NAME }}{% endblock %}
+{% block content %}
+<section class="wrap first"><h1>Our story</h1>
+{% for e in history %}<article class="story"><h3>{{ e.title }}</h3><p>{{ e.text|linebreaksbr }}</p></article>
+{% empty %}<p class="lead">Our story is being written. Come back soon.</p>{% endfor %}</section>
+<section class="wrap"><h2>Where your gift goes</h2>
+{% for e in projects %}<article class="story proj"><h3>{{ e.title }}</h3><p>{{ e.text|linebreaksbr }}</p></article>
+{% empty %}<p class="lead">We'll share our plans for the year ahead here.</p>{% endfor %}
+<a class="btn big" href="/#give">Give to the club</a></section>
+{% endblock %}
