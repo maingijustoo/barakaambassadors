@@ -50,18 +50,12 @@ SAYING = E("SAYING", "Pamoja tunaweza")
 SAYING_EN = E("SAYING_EN", "Together we can")
 CUSTOM_MIN = int(E("CUSTOM_MIN", "251"))
 MAX_DOWNLOADS = int(E("MAX_DOWNLOADS", "15"))
-# Payments (IntaSend) and storage (Cloudflare R2)
-INTASEND_TOKEN, INTASEND_PUB_KEY = E("INTASEND_TOKEN", ""), E("INTASEND_PUB_KEY", "")
-INTASEND_CHALLENGE, INTASEND_TEST = E("INTASEND_CHALLENGE", ""), E("INTASEND_TEST", "1") == "1"
 DEMO_MODE = E("DEMO_MODE") == "1"  # skips payment; for previewing only
 R2_ACCOUNT_ID, R2_KEY, R2_SECRET, R2_BUCKET = (E("R2_ACCOUNT_ID", ""), E("R2_KEY", ""), E("R2_SECRET", ""), E("R2_BUCKET", ""))
 
-# Payments: "daraja" (Safaricom M-Pesa Express, your own paybill/till) or "intasend"
-PAYMENT_PROVIDER = E("PAYMENT_PROVIDER", "daraja")
-DARAJA_KEY, DARAJA_SECRET, DARAJA_PASSKEY = E("DARAJA_KEY", ""), E("DARAJA_SECRET", ""), E("DARAJA_PASSKEY", "")
-DARAJA_SHORTCODE = E("DARAJA_SHORTCODE", "")            # your paybill (or till's head-office store number)
-DARAJA_PARTYB = E("DARAJA_PARTYB", "")                  # only for a till: the till number
-DARAJA_TXN_TYPE = E("DARAJA_TXN_TYPE", "CustomerPayBillOnline")  # till: CustomerBuyGoodsOnline
-DARAJA_ACCOUNT_REF = E("DARAJA_ACCOUNT_REF", "ALBUM")   # the account number shown on the customer's prompt (max 12 chars)
-DARAJA_SANDBOX = E("DARAJA_SANDBOX", "1") == "1"        # set 0 when live
-DARAJA_CALLBACK_SECRET = E("DARAJA_CALLBACK_SECRET", "")  # random string; becomes part of the callback URL
+# Payments: Baraka API (Baraka calls Safaricom Daraja for us)
+BARAKA_API_URL = E("BARAKA_API_URL", "https://baraka.sdabaraka.org/api/v1")
+BARAKA_API_TOKEN, BARAKA_FUND_ID = E("BARAKA_API_TOKEN", ""), E("BARAKA_FUND_ID", "")
+BARAKA_ACCOUNT_REF, BARAKA_DESCRIPTION = E("BARAKA_ACCOUNT_REF", "LAUNCH"), E("BARAKA_DESCRIPTION", "Ambassadors")
+BARAKA_CALLBACK_SECRET = E("BARAKA_CALLBACK_SECRET", "")   # long random string; becomes part of the callback address
+BARAKA_CALLBACK_BASE = E("BARAKA_CALLBACK_BASE", "")       # public https address of THIS site; needed when testing locally

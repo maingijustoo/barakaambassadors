@@ -14,7 +14,7 @@ def export_csv(modeladmin, request, qs):
 class SupporterAdmin(admin.ModelAdmin):
     list_display = ("created", "name", "phone", "amount", "status", "receipt", "downloads")
     list_filter = ("status", "amount"); search_fields = ("name", "phone", "email", "invoice_id", "receipt")
-    readonly_fields = ("api_ref", "token", "invoice_id", "created", "paid_at"); actions = [export_csv]
+    readonly_fields = ("api_ref", "token", "invoice_id", "raw", "created", "paid_at"); actions = [export_csv]
     date_hierarchy = "created"
 
 admin.site.register(Track, list_display=("title", "kind", "key", "order"))

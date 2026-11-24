@@ -11,12 +11,13 @@ retry.onclick=()=>{store.del('pending');reset()};
 findlink.onclick=()=>{$('find').open=true};
 async function poll(ref,n=0,fails=0){
   clearTimeout(timer);
-  if(n>34){panel('Still waiting','If you entered your PIN, it can take a little longer. Check again, or ask for a new prompt.',{again:ref,retry:1,find:1});return}
+  if(n>75){panel('Still waiting','If you entered your PIN, confirmation can take a few minutes. Check again, or ask for a new prompt.',{again:ref,retry:1,find:1});return}
+  if(n===10)$('wm').textContent='This is taking a little longer than usual. If you’ve got the M-Pesa confirmation message, your album will open shortly. Please keep this page open.';
   try{const r=await fetch('/check/'+ref+'/');if(!r.ok)throw 0;const j=await r.json();fails=0;say('');
     if(j.status==='paid'){store.set('album_link',j.url);store.del('pending');panel('Asante sana!','Your gift is in. Opening your album…',{});navigator.vibrate&&navigator.vibrate(20);setTimeout(()=>location.href=j.url,900);return}
     if(j.status==='failed'){store.del('pending');panel('That didn’t go through',j.reason||'The payment was cancelled or didn’t complete.',{retry:1,find:1});return}
   }catch(e){if(++fails>=3)say('Having trouble reaching the server. Your payment is safe, and we’ll keep trying.')}
-  timer=setTimeout(()=>poll(ref,n+1,fails),3000)}
+  timer=setTimeout(()=>poll(ref,n+1,fails),n<10?3000:5000)}
 // feedback when something breaks
 addEventListener('offline',()=>say('You’re offline. We’ll carry on when you’re back.'));
 addEventListener('online',()=>say(''));

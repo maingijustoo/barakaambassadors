@@ -1,4 +1,4 @@
-import json, re, hmac
+import json, logging, re, hmac
 from django.conf import settings as S
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Count, Sum
@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 from .admin import export_csv
-from . import daraja
+from . import baraka
 from .models import Entry, Supporter, Track
 
 TIERS = [(100, "Friend of the club", False), (200, "Supporter", True), (250, "Champion", False)]
@@ -35,12 +35,9 @@ def signed_url(key, filename=None, minutes=60):
         return c.generate_presigned_url("get_object", Params=p, ExpiresIn=minutes * 60)
     return S.MEDIA_URL + key  # local development fallback
 
-def intasend():
-    from intasend import APIService
-    return APIService(token=S.INTASEND_TOKEN, publishable_key=S.INTASEND_PUB_KEY, test=S.INTASEND_TEST)
-
-def apply_state(s, state, reason="", receipt=""):
+def apply_state(s, state, reason="", receipt="", raw=None):
     if receipt: s.receipt = receipt
+    if raw is not None: s.raw = json.dumps(raw)[:3000]
     if state == "COMPLETE" and s.status != "paid":
         s.status, s.paid_at = "paid", timezone.now()
     elif state == "FAILED" and s.status == "pending":
@@ -72,62 +69,43 @@ def pay(request):
     s = Supporter.objects.create(phone=phone, amount=amount, name=(d.get("name") or "")[:120], email=(d.get("email") or "")[:200])
     if S.DEMO_MODE:
         apply_state(s, "COMPLETE"); return JsonResponse({"ref": str(s.api_ref)})
-    if S.PAYMENT_PROVIDER == "daraja":
-        try:
-            s.invoice_id = daraja.stk_push(phone, amount, request.build_absolute_uri(f"/hook/daraja/{S.DARAJA_CALLBACK_SECRET}/")); s.save()
-        except Exception:
-            apply_state(s, "FAILED", "Could not reach M-Pesa"); return JsonResponse({"error": "We couldn’t send the M-Pesa prompt. Please try again in a moment."}, status=502)
-        return JsonResponse({"ref": str(s.api_ref)})
+    base = (S.BARAKA_CALLBACK_BASE or request.build_absolute_uri("/")).rstrip("/")
     try:
-        svc, kw = intasend(), dict(phone_number=phone, email=s.email or "supporter@example.com", amount=amount, narrative=f"{S.CLUB_NAME} support")
-        try: r = svc.collect.mpesa_stk_push(api_ref=str(s.api_ref), **kw)
-        except TypeError: r = svc.collect.mpesa_stk_push(**kw)
-        s.invoice_id = (r.get("invoice") or {}).get("invoice_id", ""); s.save()
+        s.invoice_id, raw = baraka.stk_push(phone, amount, str(s.api_ref), f"{base}/hook/baraka/{S.BARAKA_CALLBACK_SECRET}/")
+        s.raw = json.dumps(raw)[:3000]; s.save()
     except Exception:
-        apply_state(s, "FAILED", "Could not reach M-Pesa"); return JsonResponse({"error": "We couldn't send the M-Pesa prompt. Please try again in a moment."}, status=502)
+        logging.getLogger(__name__).exception("Baraka STK push failed")
+        apply_state(s, "FAILED", "Could not reach M-Pesa")
+        return JsonResponse({"error": "We couldn’t send the M-Pesa prompt. Please try again in a moment."}, status=502)
     return JsonResponse({"ref": str(s.api_ref)})
 
 def check(request, ref):
     s = get_object_or_404(Supporter, api_ref=ref)
-    if s.status == "pending" and s.invoice_id:  # fallback in case the webhook is slow
+    if s.status == "pending" and s.invoice_id:  # ask Baraka directly, so it works even if the callback is slow
         try:
-            if S.PAYMENT_PROVIDER == "daraja":
-                st, why = daraja.query(s.invoice_id); apply_state(s, st, why)
-            else:
-                r = intasend().collect.status(invoice_id=s.invoice_id); inv = r.get("invoice") or r
-                apply_state(s, inv.get("state"), inv.get("failed_reason") or "")
-        except Exception: pass
+            st, why, receipt, raw = baraka.status(s.invoice_id); apply_state(s, st, why, receipt, raw)
+        except Exception: logging.getLogger(__name__).exception("Baraka status check failed")
     return JsonResponse({"status": s.status, "reason": s.reason, "url": f"/album/{s.token}/" if s.status == "paid" else None})
 
 @csrf_exempt
 @require_POST
-def hook(request):
+def baraka_hook(request, secret):
+    if not S.BARAKA_CALLBACK_SECRET or not hmac.compare_digest(secret, S.BARAKA_CALLBACK_SECRET): return HttpResponseForbidden()
+    log = logging.getLogger(__name__)
     try: p = json.loads(request.body)
     except ValueError: return HttpResponseForbidden()
-    if S.INTASEND_CHALLENGE and not hmac.compare_digest(str(p.get("challenge", "")), S.INTASEND_CHALLENGE): return HttpResponseForbidden()
-    s = Supporter.objects.filter(invoice_id=p.get("invoice_id") or "-").first()
-    if not s and p.get("api_ref"):
-        try: s = Supporter.objects.filter(api_ref=p["api_ref"]).first()
+    log.warning("Baraka callback received. Header names: %s | body: %s", sorted(request.headers.keys()), json.dumps(p)[:1500])
+    ids = [i for i in {baraka.payment_id(p), (p.get("data") or {}).get("stk_push_id"), p.get("stk_push_id")} if i]
+    s = Supporter.objects.filter(invoice_id__in=ids or ["-"]).first()
+    key = p.get("idempotency_key") or (p.get("data") or {}).get("idempotency_key")  # we send our payment id as this key
+    if not s and key:
+        try: s = Supporter.objects.filter(api_ref=key).first()
         except Exception: s = None
-    if s: apply_state(s, p.get("state"), p.get("failed_reason") or "")
-    return JsonResponse({"ok": True})
-
-@csrf_exempt
-@require_POST
-def daraja_hook(request, secret):
-    if not S.DARAJA_CALLBACK_SECRET or not hmac.compare_digest(secret, S.DARAJA_CALLBACK_SECRET): return HttpResponseForbidden()
-    try: cid, code, desc, receipt, amt = daraja.parse_callback(json.loads(request.body))
-    except ValueError: return HttpResponseForbidden()
-    s = Supporter.objects.filter(invoice_id=cid or "-").first()
     if s and s.status == "pending":
-        if code == 0:
-            ok = False
-            try: ok = daraja.query(cid)[0] == "COMPLETE"   # callbacks are unsigned: confirm with Safaricom
-            except Exception: ok = amt is not None and int(float(amt)) == s.amount
-            apply_state(s, "COMPLETE" if ok else "PENDING", receipt=receipt)
-        elif code is not None:
-            apply_state(s, "FAILED", desc)
-    return JsonResponse({"ResultCode": 0, "ResultDesc": "Accepted"})
+        try:  # the callback is only a nudge: confirm with Baraka before unlocking anything
+            st, why, receipt, raw = baraka.status(s.invoice_id); apply_state(s, st, why, receipt, raw)
+        except Exception: log.exception("Baraka confirm failed; polling will retry")
+    return JsonResponse({"ok": True})
 
 @require_POST
 def find(request):
