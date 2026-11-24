@@ -59,3 +59,4 @@ footer{text-align:center;color:var(--mute);padding:2rem 1rem}
 .tier{grid-template-columns:auto 1fr;padding:.8rem}.tier em{grid-column:2;grid-row:auto;justify-self:start;margin-top:.3rem}
 .wrap{padding:0 .8rem}.tile{max-width:100%}.listen{font-size:.98rem;padding:.65rem 1.1rem}.stats b{font-size:1.25rem}.btn{padding:.8rem 1.1rem}}
 @media(max-width:340px){nav a:not(.pill){display:none}}
+footer .links{margin:0 0 .4rem}footer a{color:var(--mute)}

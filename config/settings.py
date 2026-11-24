@@ -1,6 +1,14 @@
 import os, dj_database_url
 from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
+# Local development: read KEY=value lines from a .env file if one exists (real environment variables win).
+_env = BASE_DIR / ".env"
+if _env.exists():
+    for _line in _env.read_text(encoding="utf-8").splitlines():
+        _line = _line.strip()
+        if _line and not _line.startswith("#") and "=" in _line:
+            _k, _v = _line.removeprefix("export ").split("=", 1)
+            os.environ.setdefault(_k.strip(), _v.strip().strip("\"'"))
 E = os.environ.get
 DEBUG = E("DEBUG") == "1"
 SECRET_KEY = E("SECRET_KEY", "dev-only-change-me")
@@ -37,6 +45,7 @@ CLUB_NAME = E("CLUB_NAME", "Our Club")
 ALBUM_TITLE = E("ALBUM_TITLE", "Our New Album")
 LAUNCH_DATE = E("LAUNCH_DATE", "this Saturday")
 ALBUM_COVER = E("ALBUM_COVER", "")  # e.g. /static/img/cover.jpg or a full image URL
+CONTACT_EMAIL, CONTACT_PHONE, LOCATION = E("CONTACT_EMAIL", ""), E("CONTACT_PHONE", ""), E("LOCATION", "Nairobi, Kenya")
 SAYING = E("SAYING", "Pamoja tunaweza")
 SAYING_EN = E("SAYING_EN", "Together we can")
 CUSTOM_MIN = int(E("CUSTOM_MIN", "251"))
@@ -46,3 +55,13 @@ INTASEND_TOKEN, INTASEND_PUB_KEY = E("INTASEND_TOKEN", ""), E("INTASEND_PUB_KEY"
 INTASEND_CHALLENGE, INTASEND_TEST = E("INTASEND_CHALLENGE", ""), E("INTASEND_TEST", "1") == "1"
 DEMO_MODE = E("DEMO_MODE") == "1"  # skips payment; for previewing only
 R2_ACCOUNT_ID, R2_KEY, R2_SECRET, R2_BUCKET = (E("R2_ACCOUNT_ID", ""), E("R2_KEY", ""), E("R2_SECRET", ""), E("R2_BUCKET", ""))
+
+# Payments: "daraja" (Safaricom M-Pesa Express, your own paybill/till) or "intasend"
+PAYMENT_PROVIDER = E("PAYMENT_PROVIDER", "daraja")
+DARAJA_KEY, DARAJA_SECRET, DARAJA_PASSKEY = E("DARAJA_KEY", ""), E("DARAJA_SECRET", ""), E("DARAJA_PASSKEY", "")
+DARAJA_SHORTCODE = E("DARAJA_SHORTCODE", "")            # your paybill (or till's head-office store number)
+DARAJA_PARTYB = E("DARAJA_PARTYB", "")                  # only for a till: the till number
+DARAJA_TXN_TYPE = E("DARAJA_TXN_TYPE", "CustomerPayBillOnline")  # till: CustomerBuyGoodsOnline
+DARAJA_ACCOUNT_REF = E("DARAJA_ACCOUNT_REF", "ALBUM")   # the account number shown on the customer's prompt (max 12 chars)
+DARAJA_SANDBOX = E("DARAJA_SANDBOX", "1") == "1"        # set 0 when live
+DARAJA_CALLBACK_SECRET = E("DARAJA_CALLBACK_SECRET", "")  # random string; becomes part of the callback URL

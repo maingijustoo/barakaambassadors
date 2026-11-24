@@ -29,6 +29,7 @@ class Supporter(models.Model):
     token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     invoice_id = models.CharField(max_length=100, blank=True)
     reason = models.CharField(max_length=200, blank=True)
+    receipt = models.CharField(max_length=30, blank=True, help_text="M-Pesa confirmation code")
     downloads = models.PositiveIntegerField(default=0)
     created = models.DateTimeField(auto_now_add=True)
     paid_at = models.DateTimeField(null=True, blank=True)

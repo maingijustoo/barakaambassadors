@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 from .admin import export_csv
+from . import daraja
 from .models import Entry, Supporter, Track
 
 TIERS = [(100, "Friend of the club", False), (200, "Supporter", True), (250, "Champion", False)]
@@ -38,7 +39,8 @@ def intasend():
     from intasend import APIService
     return APIService(token=S.INTASEND_TOKEN, publishable_key=S.INTASEND_PUB_KEY, test=S.INTASEND_TEST)
 
-def apply_state(s, state, reason=""):
+def apply_state(s, state, reason="", receipt=""):
+    if receipt: s.receipt = receipt
     if state == "COMPLETE" and s.status != "paid":
         s.status, s.paid_at = "paid", timezone.now()
     elif state == "FAILED" and s.status == "pending":
@@ -48,6 +50,9 @@ def apply_state(s, state, reason=""):
 @ensure_csrf_cookie
 def home(request):
     return render(request, "core/home.html", {"previews": Track.objects.filter(kind="preview")})
+
+def page(name):
+    return lambda request: render(request, f"core/{name}.html")
 
 def about(request):
     return render(request, "core/about.html", {"history": Entry.objects.filter(kind="history"), "projects": Entry.objects.filter(kind="project")})
@@ -67,6 +72,12 @@ def pay(request):
     s = Supporter.objects.create(phone=phone, amount=amount, name=(d.get("name") or "")[:120], email=(d.get("email") or "")[:200])
     if S.DEMO_MODE:
         apply_state(s, "COMPLETE"); return JsonResponse({"ref": str(s.api_ref)})
+    if S.PAYMENT_PROVIDER == "daraja":
+        try:
+            s.invoice_id = daraja.stk_push(phone, amount, request.build_absolute_uri(f"/hook/daraja/{S.DARAJA_CALLBACK_SECRET}/")); s.save()
+        except Exception:
+            apply_state(s, "FAILED", "Could not reach M-Pesa"); return JsonResponse({"error": "We couldn’t send the M-Pesa prompt. Please try again in a moment."}, status=502)
+        return JsonResponse({"ref": str(s.api_ref)})
     try:
         svc, kw = intasend(), dict(phone_number=phone, email=s.email or "supporter@example.com", amount=amount, narrative=f"{S.CLUB_NAME} support")
         try: r = svc.collect.mpesa_stk_push(api_ref=str(s.api_ref), **kw)
@@ -80,8 +91,11 @@ def check(request, ref):
     s = get_object_or_404(Supporter, api_ref=ref)
     if s.status == "pending" and s.invoice_id:  # fallback in case the webhook is slow
         try:
-            r = intasend().collect.status(invoice_id=s.invoice_id); inv = r.get("invoice") or r
-            apply_state(s, inv.get("state"), inv.get("failed_reason") or "")
+            if S.PAYMENT_PROVIDER == "daraja":
+                st, why = daraja.query(s.invoice_id); apply_state(s, st, why)
+            else:
+                r = intasend().collect.status(invoice_id=s.invoice_id); inv = r.get("invoice") or r
+                apply_state(s, inv.get("state"), inv.get("failed_reason") or "")
         except Exception: pass
     return JsonResponse({"status": s.status, "reason": s.reason, "url": f"/album/{s.token}/" if s.status == "paid" else None})
 
@@ -97,6 +111,23 @@ def hook(request):
         except Exception: s = None
     if s: apply_state(s, p.get("state"), p.get("failed_reason") or "")
     return JsonResponse({"ok": True})
+
+@csrf_exempt
+@require_POST
+def daraja_hook(request, secret):
+    if not S.DARAJA_CALLBACK_SECRET or not hmac.compare_digest(secret, S.DARAJA_CALLBACK_SECRET): return HttpResponseForbidden()
+    try: cid, code, desc, receipt, amt = daraja.parse_callback(json.loads(request.body))
+    except ValueError: return HttpResponseForbidden()
+    s = Supporter.objects.filter(invoice_id=cid or "-").first()
+    if s and s.status == "pending":
+        if code == 0:
+            ok = False
+            try: ok = daraja.query(cid)[0] == "COMPLETE"   # callbacks are unsigned: confirm with Safaricom
+            except Exception: ok = amt is not None and int(float(amt)) == s.amount
+            apply_state(s, "COMPLETE" if ok else "PENDING", receipt=receipt)
+        elif code is not None:
+            apply_state(s, "FAILED", desc)
+    return JsonResponse({"ResultCode": 0, "ResultDesc": "Accepted"})
 
 @require_POST
 def find(request):

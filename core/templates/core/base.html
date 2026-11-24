@@ -8,5 +8,5 @@
 <nav><a href="{% url 'about' %}">Our story</a><a href="{% url 'home' %}#give" class="pill">Give</a></nav></header>
 <main>{% block content %}{% endblock %}</main>
 <div id="toast" class="toast" role="alert" hidden></div>
-<footer><p>{{ S.CLUB_NAME }} · {{ S.SAYING }}, {{ S.SAYING_EN|lower }}.</p></footer>
+<footer><p class="links"><a href="/about/">Our story</a> · <a href="/contact/">Contact</a> · <a href="/terms/">Terms</a> · <a href="/privacy/">Privacy</a></p><p>{{ S.CLUB_NAME }} · {{ S.SAYING }}, {{ S.SAYING_EN|lower }}.</p></footer>
 {% block js %}{% endblock %}</body></html>

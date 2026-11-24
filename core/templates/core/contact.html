@@ -1,0 +1,8 @@
+{% extends "core/base.html" %}
+{% block title %}Contact · {{ S.CLUB_NAME }}{% endblock %}
+{% block content %}<section class="wrap first"><h1>Get in touch</h1>
+<p class="lead">Paid but couldn’t open your album? Have a question about the club? We’re happy to help.</p>
+<div class="story"><h3>{{ S.CLUB_NAME }}</h3><p>{{ S.LOCATION }}</p></div>
+{% if S.CONTACT_PHONE %}<div class="story"><h3>Phone / WhatsApp</h3><p><a href="tel:{{ S.CONTACT_PHONE }}">{{ S.CONTACT_PHONE }}</a></p></div>{% endif %}
+{% if S.CONTACT_EMAIL %}<div class="story"><h3>Email</h3><p><a href="mailto:{{ S.CONTACT_EMAIL }}">{{ S.CONTACT_EMAIL }}</a></p></div>{% endif %}
+<p class="fine">If you need help with a payment, please include your phone number and the M-Pesa confirmation code.</p></section>{% endblock %}
